@@ -1,0 +1,112 @@
+module Format2DB
+
+export main
+
+using UUIDs, Dates, CSV, ProgressMeter, IndexedTables, StructArrays, VideoIO
+
+function gettimes(path)
+    times = CSV.File(joinpath(path, "calibration_times.csv")) |> Dict
+    @assert all(file -> isfile(joinpath(path, file)), keys(times)) "video file/s missing"
+    @assert all(file -> isfile(joinpath(path, string(first(splitext(file)), ".res"))), keys(times)) "res file/s missing"
+    return times
+end
+
+function gettables(path, times)
+    expname = basename(path)
+    experiment = table(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1), pkey = :experiment)
+    designation = :Temp
+    board = table(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1), pkey = :designation)
+    runs = StructArray((run = UUID[], experiment = String[], comment = String[]))
+    videos = StructArray((video = UUID[], comment = String[]))
+    videofiles = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
+    calibrations = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
+    intervals = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Missing[], comment = String[]))
+    pois = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
+    for (k, v) in times
+        runid = uuid1()
+        push!(runs, (run = runid, experiment = expname, comment = k))
+        videoid = uuid1()
+        push!(videos, (video = videoid, comment = k))
+        date_time, _duration = VideoIO.get_time_duration(joinpath(path, k))
+        duration = Millisecond(round(Int, 1000_duration))
+        push!(videofiles, (file_name = k, video = videoid, date_time = date_time, duration = duration, index = 1))
+        calibrationid = uuid1()
+        extrinsicid = uuid1()
+        push!(calibrations, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
+        intervalid = uuid1()
+        push!(intervals, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
+        push!(pois, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
+    end
+    run = table(runs, pkey = :run)
+    video = table(videos, pkey = :video)
+    videofile = table(videofiles, pkey = :file_name)
+    calibration = table(calibrations, pkey = :calibration)
+    interval = table(intervals, pkey = :interval)
+    poi = table(pois, pkey = :poi)
+    return filter(kv -> last(kv) isa IndexedTable, Base.@locals())
+end
+
+saving(source, name, obj) = CSV.write(joinpath(source, "$name.csv"), obj)
+
+function main(path; prefix = "source_")
+    # get the data
+    times = gettimes(path)
+    a = gettables(path, times)
+    # save the data
+    source = mktempdir(homedir(), prefix = prefix, cleanup = false)
+    for (k, v) in a
+        saving(source, k, v)
+    end
+    @showprogress 1 "copying over files..." for file in keys(times)
+        cp(joinpath(path, file), joinpath(source, file))
+    end
+end
+
+
+
+end # module
+
+
+# path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest to Yakir"
+# main(path)
+
+
+
+# function dictate(nt)
+#     h, b = split(nt, first(keys(nt)))
+#     Dict(first(h) => b)
+# end
+# vectorize(nt) = NamedTuple{keys(nt)}(Vector{t}() for t in nt)
+# tableize(nt) = table(nt, pkey = first(keys(nt)))
+# function make_empty(source)
+#     video = (video = UUID, comment = String)
+#     videofile = (file_name = String, video = UUID, date_time = DateTime, duration = Millisecond, index = Int)
+#     interval = (interval = UUID, video = UUID, start = Millisecond, stop = Millisecond, comment = String)
+#     poi = (poi = UUID, type = Symbol, run = UUID, calibration = UUID, interval = UUID)
+#     calibration = (calibration = UUID, intrinsic = UUID, extrinsic = UUID, board = Symbol, comment = String)
+#     board = (designation = Symbol, checker_width_cm = Float64, checker_per_width = Int, checker_per_height = Int, board_description = String)
+#     experiment = (experiment = String, experiment_description = String, experiment_folder = String)
+#     run = (run = UUID, experiment = String, comment = String)
+#     return Dict(k => tableize(vectorize(v)) for (k,v) in Base.@locals() if v isa NamedTuple)
+# end
+# function getruns(path)
+#     ress = Set{String}()
+#     vids = Set{String}()
+#     for file in readdir(path)
+#         if isfile(joinpath(path, file))
+#             name, ext = splitext(file)
+#             if first(name) ≢ '.'
+#                 if lowercase.(ext[2:end]) ∈ ("mts", "mp4", "avi", "mpg", "mov")
+#                     push!(vids, name)
+#                 elseif ext ≡ ".res"
+#                     push!(ress, name)
+#                 end
+#             end
+#         end
+#     end
+#     @assert ress == vids "video and res files do not match"
+#     return collect(ress)
+# end
+
+
+
