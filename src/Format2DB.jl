@@ -60,6 +60,7 @@ function main(path; prefix = "source_")
     @showprogress 1 "copying over files..." for file in keys(times)
         cp(joinpath(path, file), joinpath(source, file))
     end
+    return source
 end
 
 
