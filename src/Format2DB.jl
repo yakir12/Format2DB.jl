@@ -79,8 +79,8 @@ end
 end # module
 
 
-path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest/displace_direction#towards displace_location#feeder person#therese nest#closed"
-main(path)
+# path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest/displace_direction#towards displace_location#feeder person#therese nest#closed"
+# main(path)
 
 
 
