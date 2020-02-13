@@ -2,7 +2,7 @@ module Format2DB
 
 export main
 
-using UUIDs, Dates, CSV, ProgressMeter, IndexedTables, StructArrays, VideoIO
+using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO
 
 include("resfile.jl")
 
@@ -15,44 +15,38 @@ end
 
 function gettables(path, times, pixel)
     expname = basename(path)
-    experiment = table(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1), pkey = :experiment)
+    experiment = StructArray(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1))
     designation = :Temp
-    board = table(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1), pkey = :designation)
-    runs = StructArray((run = UUID[], experiment = String[], comment = String[]))
-    videos = StructArray((video = UUID[], comment = String[]))
-    videofiles = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
-    calibrations = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
-    intervals = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Missing[], comment = String[]))
-    pois = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
+    board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
+    run = StructArray((run = UUID[], experiment = String[], comment = String[]))
+    video = StructArray((video = UUID[], comment = String[]))
+    videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
+    calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
+    interval = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Missing[], comment = String[]))
+    poi = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
         runid = uuid1()
-        push!(runs, (run = runid, experiment = expname, comment = k))
+        push!(run, (run = runid, experiment = expname, comment = k))
         videoid = uuid1()
-        push!(videos, (video = videoid, comment = k))
+        push!(video, (video = videoid, comment = k))
         date_time, _duration = VideoIO.get_time_duration(joinpath(path, k))
         duration = Millisecond(round(Int, 1000_duration))
-        push!(videofiles, (file_name = k, video = videoid, date_time = date_time, duration = duration, index = 1))
+        push!(videofile, (file_name = k, video = videoid, date_time = date_time, duration = duration, index = 1))
         calibrationid = uuid1()
         extrinsicid = uuid1()
-        push!(calibrations, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
+        push!(calibration, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
         intervalid = extrinsicid
-        push!(intervals, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
-        push!(pois, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
+        push!(interval, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
+        push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
         ids = savepixels(pixel, resfile)
         for (column, id) in zip(columns, ids)
-            push!(intervals, (interval = id, video = videoid, start = Millisecond(0), stop = missing, comment = "bogus"))
-            push!(pois, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
+            push!(interval, (interval = id, video = videoid, start = Millisecond(0), stop = missing, comment = "bogus"))
+            push!(poi, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
         end
     end
-    run = table(runs, pkey = :run)
-    video = table(videos, pkey = :video)
-    videofile = table(videofiles, pkey = :file_name)
-    calibration = table(calibrations, pkey = :calibration)
-    interval = table(intervals, pkey = :interval)
-    poi = table(pois, pkey = :poi)
-    return filter(kv -> last(kv) isa IndexedTable, Base.@locals())
+    return filter(kv -> last(kv) isa StructArray, Base.@locals())
 end
 
 saving(source, name, obj) = CSV.write(joinpath(source, "$name.csv"), obj)
