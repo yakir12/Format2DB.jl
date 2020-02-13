@@ -1,4 +1,6 @@
-using MAT, DelimitedFiles
+using MAT, DelimitedFiles, SparseArrays
+
+ncol(io) = size(read(io, "xdata"), 2)
 
 function savepixels(pixelfolder, resfile)
     matopen(resfile) do io

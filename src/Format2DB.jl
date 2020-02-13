@@ -4,6 +4,8 @@ export main
 
 using UUIDs, Dates, CSV, ProgressMeter, IndexedTables, StructArrays, VideoIO
 
+include("resfile.jl")
+
 function gettimes(path)
     times = CSV.File(joinpath(path, "calibration_times.csv")) |> Dict
     @assert all(file -> isfile(joinpath(path, file)), keys(times)) "video file/s missing"
@@ -40,7 +42,7 @@ function gettables(path, times, pixel)
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
         ids = savepixels(pixel, resfile)
         for (column, id) in zip(columns, ids)
-            push!(intervals, (interval = id, video = videoid, start = missing, stop = missing, comment = "bogus"))
+            push!(intervals, (interval = id, video = videoid, start = Millisecond(0), stop = missing, comment = "bogus"))
             push!(pois, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
         end
     end
@@ -77,8 +79,8 @@ end
 end # module
 
 
-# path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest to Yakir"
-# main(path)
+path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest/displace_direction#towards displace_location#feeder person#therese nest#closed"
+main(path)
 
 
 
