@@ -11,7 +11,7 @@ function gettimes(path)
     return times
 end
 
-function gettables(path, times)
+function gettables(path, times, pixel)
     expname = basename(path)
     experiment = table(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1), pkey = :experiment)
     designation = :Temp
@@ -22,6 +22,7 @@ function gettables(path, times)
     calibrations = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
     intervals = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Missing[], comment = String[]))
     pois = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
+    columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
         runid = uuid1()
         push!(runs, (run = runid, experiment = expname, comment = k))
@@ -36,6 +37,12 @@ function gettables(path, times)
         intervalid = extrinsicid
         push!(intervals, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
         push!(pois, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
+        resfile = joinpath(path, string(first(splitext(k)), ".res"))
+        ids = savepixels(pixel, resfile)
+        for (column, id) in zip(columns, ids)
+            push!(intervals, (interval = id, video = videoid, start = missing, stop = missing, comment = "bogus"))
+            push!(pois, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
+        end
     end
     run = table(runs, pkey = :run)
     video = table(videos, pkey = :video)
@@ -49,11 +56,13 @@ end
 saving(source, name, obj) = CSV.write(joinpath(source, "$name.csv"), obj)
 
 function main(path; prefix = "source_")
+    source = mktempdir(homedir(), prefix = prefix, cleanup = false)
+    pixel = joinpath(source, "pixel")
+    mkdir(pixel)
     # get the data
     times = gettimes(path)
-    a = gettables(path, times)
+    a = gettables(path, times, pixel)
     # save the data
-    source = mktempdir(homedir(), prefix = prefix, cleanup = false)
     for (k, v) in a
         saving(source, k, v)
     end
