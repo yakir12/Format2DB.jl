@@ -33,7 +33,7 @@ function gettables(path, times)
         calibrationid = uuid1()
         extrinsicid = uuid1()
         push!(calibrations, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
-        intervalid = uuid1()
+        intervalid = extrinsicid
         push!(intervals, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
         push!(pois, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
     end
