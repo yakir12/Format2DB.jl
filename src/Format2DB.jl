@@ -15,7 +15,7 @@ end
 
 function gettables(path, times, pixel)
     expname = basename(path)
-    experiment = StructArray(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1))
+    experiment = StructArray(((experiment = expname, experiment_description = "none", experiment_folder = path) for _ in 1:1))
     designation = :Temp
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv")) |> Dict
