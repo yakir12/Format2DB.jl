@@ -2,7 +2,7 @@ module Format2DB
 
 export main
 
-using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO
+using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO, Tables
 
 include("resfile.jl")
 
@@ -18,7 +18,10 @@ function gettables(path, times, pixel)
     experiment = StructArray(((experiment = expname, experiment_description = "", experiment_folder = "") for _ in 1:1))
     designation = :Temp
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
-    run = StructArray((run = UUID[], experiment = String[], date = Date[], comment = String[]))
+    d = CSV.File(joinpath(path, "factors.csv")) |> Dict
+    factors = (; Dict(Symbol(k) => v for (k, v) in d)...)
+    x = (; Dict(k => String[] for k in keys(factors))...)
+    run = StructArray((run = UUID[], experiment = String[], date = Date[], comment = String[], x...))
     video = StructArray((video = UUID[], comment = String[]))
     videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
@@ -27,7 +30,7 @@ function gettables(path, times, pixel)
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
         runid = uuid1()
-        push!(run, (run = runid, experiment = expname, date = Date(now()), comment = k))
+        push!(run, (run = runid, experiment = expname, date = Date(now()), comment = k, factors...))
         videoid = uuid1()
         push!(video, (video = videoid, comment = k))
         date_time, _duration = VideoIO.get_time_duration(joinpath(path, k))
