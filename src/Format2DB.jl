@@ -45,7 +45,7 @@ function gettables(path, times, pixel)
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
         ids = savepixels(pixel, resfile)
         for (column, id) in zip(columns, ids)
-            push!(interval, (interval = id, video = videoid, start = Millisecond(0), stop = missing, comment = "bogus"))
+            push!(interval, (interval = id, video = videoid, start = Millisecond(0), stop = column == :track ? Millisecond(1) : missing, comment = "bogus"))
             push!(poi, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
         end
     end
