@@ -25,7 +25,7 @@ function gettables(path, times, pixel)
     video = StructArray((video = UUID[], comment = String[]))
     videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
-    interval = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Missing[], comment = String[]))
+    interval = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Union{Millisecond, Missing}[], comment = String[]))
     poi = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
