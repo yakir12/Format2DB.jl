@@ -16,6 +16,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 VideoIO = "d6d074c3-1acf-5d4c-9a43-ef38773959a2"
 
 [compat]
+VideoIO = "0.6.11"
 Tables = "0.2.11"
 julia = "^1"
 
