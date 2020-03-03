@@ -28,7 +28,7 @@ function gettables(path, times, pixel)
     interval = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Union{Millisecond, Missing}[], comment = String[]))
     poi = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
-    for (k, v) in times
+    Threads.@threads for (k, v) in times
         runid = uuid1()
         push!(run, (run = runid, experiment = expname, date = Date(now()), comment = k, factors...))
         videoid = uuid1()
@@ -62,10 +62,10 @@ function main(path; prefix = "source_")
     times = gettimes(path)
     a = gettables(path, times, pixel)
     # save the data
-    for (k, v) in a
+    Threads.@threads for (k, v) in a
         saving(source, k, v)
     end
-    @showprogress 1 "copying over files..." for file in keys(times)
+    Threads.@threads for file in keys(times)
         cp(joinpath(path, file), joinpath(source, file))
     end
     return source
