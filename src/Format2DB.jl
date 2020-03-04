@@ -63,10 +63,10 @@ function main(path; prefix = "source_")
     times = gettimes(path)
     a = gettables(path, times, pixel)
     # save the data
-    for (k, v) in a
+    @sync for (k, v) in a
         @spawn saving(source, k, v)
     end
-    for file in keys(times)
+    @sync for file in keys(times)
         @spawn cp(joinpath(path, file), joinpath(source, file))
     end
     return source
