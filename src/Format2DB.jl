@@ -2,8 +2,8 @@ module Format2DB
 
 export main
 
-using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO, Tables
-import Base.Threads.@spawn
+using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO, Tables, TableOperations, Dates
+import Base.Threads: @spawn, @threads
 
 include("resfile.jl")
 
@@ -17,7 +17,7 @@ end
 function gettables(path, times, pixel)
     expname = basename(path)
     experiment = StructArray(((experiment = expname, experiment_description = "none", experiment_folder = path) for _ in 1:1))
-    designation = :Temp
+    designation = Symbol(string("a", hash(path)))
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv")) |> Dict
     factors = (; Dict(Symbol(k) => v for (k, v) in d)...)
@@ -53,10 +53,12 @@ function gettables(path, times, pixel)
     return filter(kv -> last(kv) isa StructArray, Base.@locals())
 end
 
-saving(source, name, obj) = CSV.write(joinpath(source, "$name.csv"), obj)
+tonano(_::Missing) = missing
+tonano(x) = Dates.value(Dates.Nanosecond(x))
+saving(source, name, obj) = obj |> TableOperations.transform(start = tonano, stop = tonano, duration = tonano) |> CSV.write(joinpath(source, "$name.csv"), obj)
 
 function main(path; prefix = "source_")
-    source = mktempdir(homedir(), prefix = prefix, cleanup = false)
+    source = mktempdir(; prefix = prefix, cleanup = false)
     pixel = joinpath(source, "pixel")
     mkdir(pixel)
     # get the data
@@ -67,7 +69,58 @@ function main(path; prefix = "source_")
         @spawn saving(source, k, v)
     end
     @sync for file in keys(times)
-        @spawn cp(joinpath(path, file), joinpath(source, file))
+        @spawn symlink(joinpath(path, file), joinpath(source, file))
+        # @spawn cp(joinpath(path, file), joinpath(source, file))
+    end
+    return source
+end
+
+function joinsources(sources; prefix = "source_")
+    source = mktempdir(; prefix = prefix, cleanup = false)
+    pixel = joinpath(source, "pixel")
+    mkdir(pixel)
+    @sync for s in sources
+        @spawn begin
+            pp = joinpath(s, "pixel")
+            for p in readdir(pp)
+                @assert p ∉ readdir(pixel) "duplicate pixel files"
+                mv(joinpath(pp, p), joinpath(pixel, p))
+            end
+            rm(pp)
+        end
+    end
+    @sync for x in ("board", "calibration", "experiment", "interval", "poi", "run", "video", "videofile")
+        @spawn begin 
+
+            open(joinpath(source, "$x.csv"), "w") do i
+                open(joinpath(sources[1], "$x.csv")) do o
+                    write(i, read(o))
+                end
+                for s in Iterators.drop(sources, 1)
+                    open(joinpath(s, "$x.csv")) do o
+                        readuntil(o, '\n')
+                        write(i, read(o))
+                    end
+                end
+            end
+
+            # vcat((CSV.read(joinpath(s, "$x.csv")) for s in sources)...) |> CSV.write(joinpath(source, "$x.csv"))
+            for s in sources
+                rm(joinpath(s, "$x.csv"))
+            end
+        end
+    end
+    @sync for s in sources
+        @spawn begin
+            for p in readdir(s)
+                @assert p ∉ readdir(source) "duplicate video files"
+                mv(joinpath(s, p), joinpath(source, p))
+            end
+        end
+    end
+    for s in sources
+        @assert isempty(readdir(s)) "some files remain?"
+        rm(s)
     end
     return source
 end
@@ -75,48 +128,3 @@ end
 
 
 end # module
-
-# prefix = "source_"
-# path = "/home/yakir/coffeebeetlearticle/displacement/Dtowards closed nest/displace_direction#towards displace_location#feeder person#therese nest#closed"
-# main(path)
-
-
-
-# function dictate(nt)
-#     h, b = split(nt, first(keys(nt)))
-#     Dict(first(h) => b)
-# end
-# vectorize(nt) = NamedTuple{keys(nt)}(Vector{t}() for t in nt)
-# tableize(nt) = table(nt, pkey = first(keys(nt)))
-# function make_empty(source)
-#     video = (video = UUID, comment = String)
-#     videofile = (file_name = String, video = UUID, date_time = DateTime, duration = Millisecond, index = Int)
-#     interval = (interval = UUID, video = UUID, start = Millisecond, stop = Millisecond, comment = String)
-#     poi = (poi = UUID, type = Symbol, run = UUID, calibration = UUID, interval = UUID)
-#     calibration = (calibration = UUID, intrinsic = UUID, extrinsic = UUID, board = Symbol, comment = String)
-#     board = (designation = Symbol, checker_width_cm = Float64, checker_per_width = Int, checker_per_height = Int, board_description = String)
-#     experiment = (experiment = String, experiment_description = String, experiment_folder = String)
-#     run = (run = UUID, experiment = String, comment = String)
-#     return Dict(k => tableize(vectorize(v)) for (k,v) in Base.@locals() if v isa NamedTuple)
-# end
-# function getruns(path)
-#     ress = Set{String}()
-#     vids = Set{String}()
-#     for file in readdir(path)
-#         if isfile(joinpath(path, file))
-#             name, ext = splitext(file)
-#             if first(name) ≢ '.'
-#                 if lowercase.(ext[2:end]) ∈ ("mts", "mp4", "avi", "mpg", "mov")
-#                     push!(vids, name)
-#                 elseif ext ≡ ".res"
-#                     push!(ress, name)
-#                 end
-#             end
-#         end
-#     end
-#     @assert ress == vids "video and res files do not match"
-#     return collect(ress)
-# end
-
-
-
