@@ -2,7 +2,7 @@ module Format2DB
 
 export main
 
-using UUIDs, Dates, CSV, ProgressMeter, StructArrays, VideoIO, Tables, TableOperations, Dates
+using UUIDs, Dates, CSV, StructArrays, VideoIO, Tables, TableOperations, Dates
 import Base.Threads: @spawn, @threads
 
 include("resfile.jl")
@@ -24,9 +24,9 @@ function gettables(path, times, pixel)
     x = (; Dict(k => String[] for k in keys(factors))...)
     run = StructArray((run = UUID[], experiment = String[], date = Date[], comment = String[], x...))
     video = StructArray((video = UUID[], comment = String[]))
-    videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Millisecond[], index = Int[]))
+    videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Nanosecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
-    interval = StructArray((interval = UUID[], video = UUID[], start = Millisecond[], stop = Union{Millisecond, Missing}[], comment = String[]))
+    interval = StructArray((interval = UUID[], video = UUID[], start = Nanosecond[], stop = Union{Nanosecond, Missing}[], comment = String[]))
     poi = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
@@ -35,7 +35,7 @@ function gettables(path, times, pixel)
         videoid = uuid1()
         push!(video, (video = videoid, comment = k))
         date_time, _duration = VideoIO.get_time_duration(joinpath(path, k))
-        duration = Millisecond(round(Int, 1000_duration))
+        duration = Nanosecond(round(Int, 1000000000_duration))
         push!(videofile, (file_name = k, video = videoid, date_time = date_time, duration = duration, index = 1))
         calibrationid = uuid1()
         extrinsicid = uuid1()
@@ -46,7 +46,7 @@ function gettables(path, times, pixel)
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
         ids = savepixels(pixel, resfile)
         for (column, id) in zip(columns, ids)
-            push!(interval, (interval = id, video = videoid, start = Millisecond(0), stop = column == :track ? Millisecond(1) : missing, comment = "bogus"))
+            push!(interval, (interval = id, video = videoid, start = Nanosecond(0), stop = column == :track ? Nanosecond(1000000000) : missing, comment = "bogus"))
             push!(poi, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
         end
     end
@@ -55,7 +55,7 @@ end
 
 tonano(_::Missing) = missing
 tonano(x) = Dates.value(Dates.Nanosecond(x))
-saving(source, name, obj) = obj |> TableOperations.transform(start = tonano, stop = tonano, duration = tonano) |> CSV.write(joinpath(source, "$name.csv"), obj)
+saving(source, name, obj) = obj |> TableOperations.transform(start = tonano, stop = tonano, duration = tonano) |> CSV.write(joinpath(source, "$name.csv"))
 
 function main(path; prefix = "source_")
     source = mktempdir(; prefix = prefix, cleanup = false)
@@ -69,11 +69,13 @@ function main(path; prefix = "source_")
         @spawn saving(source, k, v)
     end
     @sync for file in keys(times)
-        @spawn symlink(joinpath(path, file), joinpath(source, file))
-        # @spawn cp(joinpath(path, file), joinpath(source, file))
+        # @spawn symlink(joinpath(path, file), joinpath(source, file))
+        @spawn cp(joinpath(path, file), joinpath(source, file))
     end
     return source
 end
+
+goodvideo(file) = first(file) ≠ '.' && occursin(r"mts|mp4|avi|mpg|mov|mkv"i, last(splitext(file)))
 
 function joinsources(sources; prefix = "source_")
     source = mktempdir(; prefix = prefix, cleanup = false)
@@ -84,9 +86,10 @@ function joinsources(sources; prefix = "source_")
             pp = joinpath(s, "pixel")
             for p in readdir(pp)
                 @assert p ∉ readdir(pixel) "duplicate pixel files"
-                mv(joinpath(pp, p), joinpath(pixel, p))
+                # mv(joinpath(pp, p), joinpath(pixel, p))
+                cp(joinpath(pp, p), joinpath(pixel, p))
             end
-            rm(pp)
+            # rm(pp)
         end
     end
     @sync for x in ("board", "calibration", "experiment", "interval", "poi", "run", "video", "videofile")
@@ -104,24 +107,25 @@ function joinsources(sources; prefix = "source_")
                 end
             end
 
-            # vcat((CSV.read(joinpath(s, "$x.csv")) for s in sources)...) |> CSV.write(joinpath(source, "$x.csv"))
-            for s in sources
-                rm(joinpath(s, "$x.csv"))
-            end
+            # for s in sources
+                # rm(joinpath(s, "$x.csv"))
+            # end
         end
     end
     @sync for s in sources
         @spawn begin
             for p in readdir(s)
-                @assert p ∉ readdir(source) "duplicate video files"
-                mv(joinpath(s, p), joinpath(source, p))
+                if goodvideo(p)
+                    @assert p ∉ readdir(source) "duplicate video files"
+                    cp(joinpath(s, p), joinpath(source, p))
+                end
             end
         end
     end
-    for s in sources
-        @assert isempty(readdir(s)) "some files remain?"
-        rm(s)
-    end
+    # for s in sources
+    #     @assert isempty(readdir(s)) "some files remain?"
+    #     rm(s)
+    # end
     return source
 end
 
