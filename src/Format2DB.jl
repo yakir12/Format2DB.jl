@@ -22,7 +22,7 @@ function gettables(path, times, pixel)
     d = CSV.File(joinpath(path, "factors.csv")) |> Dict
     factors = (; Dict(Symbol(k) => v for (k, v) in d)...)
     x = (; Dict(k => String[] for k in keys(factors))...)
-    run = StructArray((run = UUID[], experiment = String[], date = Date[], comment = String[], x...))
+    run = StructArray((run = UUID[], experiment = String[], date = Date[], id = String[], comment = String[], x...))
     video = StructArray((video = UUID[], comment = String[]))
     videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Nanosecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
@@ -31,7 +31,7 @@ function gettables(path, times, pixel)
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
         runid = uuid1()
-        push!(run, (run = runid, experiment = expname, date = Date(now()), comment = k, factors...))
+        push!(run, (run = runid, experiment = expname, date = Date(now()), id = string("id", hash(string(path, k))), comment = k, factors...))
         videoid = uuid1()
         push!(video, (video = videoid, comment = k))
         date_time, _duration = VideoIO.get_time_duration(joinpath(path, k))
@@ -74,61 +74,6 @@ function main(path; prefix = "source_")
     end
     return source
 end
-
-goodvideo(file) = first(file) ≠ '.' && occursin(r"mts|mp4|avi|mpg|mov|mkv"i, last(splitext(file)))
-
-function joinsources(sources; prefix = "source_")
-    source = mktempdir(; prefix = prefix, cleanup = false)
-    pixel = joinpath(source, "pixel")
-    mkdir(pixel)
-    @sync for s in sources
-        @spawn begin
-            pp = joinpath(s, "pixel")
-            for p in readdir(pp)
-                @assert p ∉ readdir(pixel) "duplicate pixel files"
-                # mv(joinpath(pp, p), joinpath(pixel, p))
-                cp(joinpath(pp, p), joinpath(pixel, p))
-            end
-            # rm(pp)
-        end
-    end
-    @sync for x in ("board", "calibration", "experiment", "interval", "poi", "run", "video", "videofile")
-        @spawn begin 
-
-            open(joinpath(source, "$x.csv"), "w") do i
-                open(joinpath(sources[1], "$x.csv")) do o
-                    write(i, read(o))
-                end
-                for s in Iterators.drop(sources, 1)
-                    open(joinpath(s, "$x.csv")) do o
-                        readuntil(o, '\n')
-                        write(i, read(o))
-                    end
-                end
-            end
-
-            # for s in sources
-                # rm(joinpath(s, "$x.csv"))
-            # end
-        end
-    end
-    @sync for s in sources
-        @spawn begin
-            for p in readdir(s)
-                if goodvideo(p)
-                    @assert p ∉ readdir(source) "duplicate video files"
-                    cp(joinpath(s, p), joinpath(source, p))
-                end
-            end
-        end
-    end
-    # for s in sources
-    #     @assert isempty(readdir(s)) "some files remain?"
-    #     rm(s)
-    # end
-    return source
-end
-
 
 
 end # module
