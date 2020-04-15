@@ -1,6 +1,6 @@
 using MAT, DelimitedFiles, SparseArrays
 
-ncol(io) = size(read(io, "xdata"), 2)
+ncol(io) = mapreduce(!isempty, +, eachcol(read(io, "xdata"))) # only works well if the empty column is last
 
 function savepixels(pixelfolder, resfile)
     matopen(resfile) do io
@@ -8,7 +8,7 @@ function savepixels(pixelfolder, resfile)
         ids = Vector{UUID}(undef, n)
         for i in 1:n
             x, y, t = getcoordinates(io, i)
-            @assert !isempty(x) "no coordinates in column $i"
+            # @assert !isempty(x) "no coordinates in column $i"
             id = uuid1()
             writedlm(joinpath(pixelfolder, "$id.csv"), zip(x, y, t))
             ids[i] = id
