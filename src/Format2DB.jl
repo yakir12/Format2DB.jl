@@ -21,7 +21,7 @@ function gettables(path, times, pixel)
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv")) |> Dict
     d["azimuth"] = "0°"
-    factors = (; Dict(Symbol(k) => v for (k, v) in d)...)
+    factors = Dict(Symbol(k) => v for (k, v) in d)
     x = (; Dict(k => String[] for k in keys(factors))...)
     run = StructArray((run = UUID[], experiment = String[], date = Date[], id = String[], comment = String[], x...))
     azimuths = if isfile(joinpath(path, "azimuths.csv"))
