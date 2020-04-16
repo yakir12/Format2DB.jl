@@ -20,9 +20,15 @@ function gettables(path, times, pixel)
     designation = Symbol(string("a", hash(path)))
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv")) |> Dict
+    d["azimuth"] = "0°"
     factors = (; Dict(Symbol(k) => v for (k, v) in d)...)
     x = (; Dict(k => String[] for k in keys(factors))...)
     run = StructArray((run = UUID[], experiment = String[], date = Date[], id = String[], comment = String[], x...))
+    azimuths = if isfile(joinpath(path, "azimuths.csv"))
+        CSV.File(joinpath(path, "azimuths.csv")) |> Dict
+    else
+        Dict()
+    end
     video = StructArray((video = UUID[], comment = String[]))
     videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Nanosecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
@@ -31,6 +37,9 @@ function gettables(path, times, pixel)
     columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
     for (k, v) in times
         runid = uuid1()
+        if haskey(azimuths, k)
+            factors[:azimuth] = string(azimuths[k], "∘")
+        end
         push!(run, (run = runid, experiment = expname, date = Date(now()), id = string("id", hash(string(path, k))), comment = k, factors...))
         videoid = uuid1()
         push!(video, (video = videoid, comment = k))
