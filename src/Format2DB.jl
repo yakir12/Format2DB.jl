@@ -58,7 +58,7 @@ function gettables(path, times, pixel)
             push!(interval, (interval = id, video = videoid, start = Nanosecond(0), stop = column == :track ? Nanosecond(1000000000) : missing, comment = "bogus"))
             push!(poi, (poi = uuid1(), type = column, run = runid, calibration = calibrationid, interval = id))
             nr = size(readdlm(joinpath(pixel, "$id.csv")), 1)
-            @assert column == :track ? nr > 5 : nr == 1 "column $column has $nr rows"
+            @assert column == :track ? nr > 5 : nr == 1 "column $column has $nr rows, in $k"
         end
     end
     return filter(kv -> last(kv) isa StructArray, Base.@locals())
