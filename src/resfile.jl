@@ -8,7 +8,8 @@ function savepixels(pixelfolder, resfile)
         ids = Vector{UUID}(undef, n)
         for i in 1:n
             x, y, t = getcoordinates(io, i)
-            # @assert !isempty(x) "no coordinates in column $i"
+            @assert !isempty(x) "no coordinates in column $i of $n columns in $resfile"
+            @assert length(x) == length(y) == length(t) "x, y, and t must have the same length in $resfile"
             id = uuid1()
             writedlm(joinpath(pixelfolder, "$id.csv"), zip(x, y, t))
             ids[i] = id

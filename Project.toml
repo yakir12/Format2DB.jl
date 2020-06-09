@@ -1,7 +1,7 @@
 name = "Format2DB"
 uuid = "ee64474f-0879-4582-97c7-e60ff50c5730"
 authors = ["yakir12 <12.yakir@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
