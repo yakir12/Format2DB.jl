@@ -8,7 +8,7 @@ import Base.Threads: @spawn, @threads
 include("resfile.jl")
 
 function gettimes(path)
-    times = CSV.File(joinpath(path, "calibration_times.csv", ignoreemptylines = true)) |> Dict
+    times = CSV.File(joinpath(path, "calibration_times.csv"), ignoreemptylines = true) |> Dict
     @assert all(file -> isfile(joinpath(path, file)), keys(times)) "video file/s missing"
     @assert all(file -> isfile(joinpath(path, string(first(splitext(file)), ".res"))), keys(times)) "res file/s missing"
     return times
