@@ -8,7 +8,7 @@ import Base.Threads: @spawn, @threads
 include("resfile.jl")
 
 function gettimes(path)
-    times = CSV.File(joinpath(path, "calibration_times.csv")) |> Dict
+    times = CSV.File(joinpath(path, "calibration_times.csv", ignoreemptylines = true)) |> Dict
     @assert all(file -> isfile(joinpath(path, file)), keys(times)) "video file/s missing"
     @assert all(file -> isfile(joinpath(path, string(first(splitext(file)), ".res"))), keys(times)) "res file/s missing"
     return times
@@ -19,13 +19,13 @@ function gettables(path, times, pixel)
     experiment = StructArray(((experiment = expname, experiment_description = "none", experiment_folder = path) for _ in 1:1))
     designation = Symbol(string("a", hash(path)))
     board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
-    d = CSV.File(joinpath(path, "factors.csv")) |> Dict
+    d = CSV.File(joinpath(path, "factors.csv"), ignoreemptylines = true) |> Dict
     d["azimuth"] = "0°"
     factors = Dict(Symbol(k) => v for (k, v) in d)
     x = (; Dict(k => String[] for k in keys(factors))...)
     run = StructArray((run = UUID[], experiment = String[], date = Date[], id = String[], comment = String[], x...))
     azimuths = if isfile(joinpath(path, "azimuths.csv"))
-        CSV.File(joinpath(path, "azimuths.csv")) |> Dict
+        CSV.File(joinpath(path, "azimuths.csv"), ignoreemptylines = true) |> Dict
     else
         Dict()
     end
@@ -34,7 +34,7 @@ function gettables(path, times, pixel)
     calibration = StructArray((calibration = UUID[], intrinsic = Missing[], extrinsic = UUID[], board = Symbol[], comment = String[]))
     interval = StructArray((interval = UUID[], video = UUID[], start = Nanosecond[], stop = Union{Nanosecond, Missing}[], comment = String[]))
     poi = StructArray((poi = UUID[], type = Symbol[], run = UUID[], calibration = UUID[], interval = UUID[]))
-    columns = CSV.File(joinpath(path, "columns.csv")) |> propertynames
+    columns = CSV.File(joinpath(path, "columns.csv"), ignoreemptylines = true) |> propertynames
     for (k, v) in times
         runid = uuid1()
         if haskey(azimuths, k)
