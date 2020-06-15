@@ -2,13 +2,14 @@ module Format2DB
 
 export main
 
-using UUIDs, Dates, CSV, StructArrays, VideoIO, Tables, TableOperations, Dates
+using UUIDs, Dates, CSV, StructArrays, VideoIO, Tables, TableOperations, Dates, DataFrames
 import Base.Threads: @spawn, @threads
 
 include("resfile.jl")
 
 function gettimes(path)
-    times = CSV.File(joinpath(path, "calibration_times.csv"), ignoreemptylines = true) |> Dict
+    x = CSV.read(joinpath(path, "calibration_times.csv"), ignoreemptylines = true)
+    times = Dict(r.file => (; r[Not(:file)]...) for r in eachrow(x))
     @assert all(file -> isfile(joinpath(path, file)), keys(times)) "video file/s missing"
     @assert all(file -> isfile(joinpath(path, string(first(splitext(file)), ".res"))), keys(times)) "res file/s missing"
     return times
@@ -18,7 +19,7 @@ function gettables(path, times, pixel)
     expname = basename(path)
     experiment = StructArray(((experiment = expname, experiment_description = "none", experiment_folder = path) for _ in 1:1))
     designation = Symbol(string("a", hash(path)))
-    board = StructArray(((designation = designation, checker_width_cm = 3.9, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
+    board = StructArray(((designation = designation, checker_width_cm = 4.0, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv"), ignoreemptylines = true) |> Dict
     d["azimuth"] = "0°"
     factors = Dict(Symbol(k) => v for (k, v) in d)
@@ -48,11 +49,20 @@ function gettables(path, times, pixel)
         duration = Nanosecond(round(Int, 1000000000_duration))
         push!(videofile, (file_name = k, video = videoid, date_time = date_time, duration = duration, index = 1))
         calibrationid = uuid1()
-        extrinsicid = uuid1()
-        push!(calibration, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
-        intervalid = extrinsicid
-        push!(interval, (interval = intervalid, video = videoid, start = v - Time(0), stop = missing, comment = ""))
-        push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intervalid))
+        if haskey(v, :timestart)
+            extrinsicid = uuid1()
+            intrinsicid = uuid1()
+            push!(calibration, (calibration = calibrationid, intrinsic = intrinsicid, extrinsic = extrinsicid, board = designation, comment = ""))
+            push!(interval, (interval = extrinsicid, video = videoid, start = v.ground - Time(0), stop = missing, comment = ""))
+            push!(interval, (interval = intrinsicid, video = videoid, start = v.timestart - Time(0), stop = v.timeend - Time(0), comment = ""))
+            push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = extrinsicid))
+            push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intrinsicid))
+        else
+            extrinsicid = uuid1()
+            push!(calibration, (calibration = calibrationid, intrinsic = intrinsicid, extrinsic = extrinsicid, board = designation, comment = ""))
+            push!(interval, (interval = extrinsicid, video = videoid, start = v.extrinsic - Time(0), stop = missing, comment = ""))
+            push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = extrinsicid))
+        end
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
         ids = savepixels(pixel, resfile)
         for (column, id) in zip(columns, ids)
