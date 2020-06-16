@@ -59,8 +59,8 @@ function gettables(path, times, pixel)
             push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = intrinsicid))
         else
             extrinsicid = uuid1()
-            push!(calibration, (calibration = calibrationid, intrinsic = intrinsicid, extrinsic = extrinsicid, board = designation, comment = ""))
-            push!(interval, (interval = extrinsicid, video = videoid, start = v.extrinsic - Time(0), stop = missing, comment = ""))
+            push!(calibration, (calibration = calibrationid, intrinsic = missing, extrinsic = extrinsicid, board = designation, comment = ""))
+            push!(interval, (interval = extrinsicid, video = videoid, start = v.time - Time(0), stop = missing, comment = ""))
             push!(poi, (poi = uuid1(), type = :calibration, run = runid, calibration = calibrationid, interval = extrinsicid))
         end
         resfile = joinpath(path, string(first(splitext(k)), ".res"))
