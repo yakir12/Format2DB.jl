@@ -91,7 +91,7 @@ function main(path; prefix = "source_")
     end
     for file in keys(times)
         # @spawn symlink(joinpath(path, file), joinpath(source, file))
-        @show joinpath(path, file), joinpath(source, file)
+        # @show joinpath(path, file), joinpath(source, file)
         cp(joinpath(path, file), joinpath(source, file))
     end
     return source
