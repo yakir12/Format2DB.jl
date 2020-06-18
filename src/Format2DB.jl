@@ -3,7 +3,6 @@ module Format2DB
 export main
 
 using UUIDs, Dates, CSV, StructArrays, VideoIO, Tables, TableOperations, Dates, DataFrames
-import Base.Threads: @spawn, @threads
 
 include("resfile.jl")
 
@@ -87,12 +86,12 @@ function main(path; prefix = "source_")
     times = gettimes(path)
     a = gettables(path, times, pixel)
     # save the data
-    @sync for (k, v) in a
-        @spawn saving(source, k, v)
+    for (k, v) in a
+        saving(source, k, v)
     end
-    @sync for file in keys(times)
+    for file in keys(times)
         # @spawn symlink(joinpath(path, file), joinpath(source, file))
-        @spawn cp(joinpath(path, file), joinpath(source, file))
+        cp(joinpath(path, file), joinpath(source, file))
     end
     return source
 end
