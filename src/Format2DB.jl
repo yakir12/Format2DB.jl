@@ -20,18 +20,24 @@ function gettables(path, times, pixel)
     designation = Symbol(string("a", hash(path)))
     board = StructArray(((designation = designation, checker_width_cm = 4.0, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv"), ignoreemptylines = true) |> Dict
-    d["azimuth"] = ""
-    d["turningpoint"] = ""
+    isazimuth = isfile(joinpath(path, "azimuths.csv"))
+    if isazimuth
+        d["azimuth"] = ""
+    end
+    istp = isfile(joinpath(path, "turningpoints.csv"))
+    if istp
+        d["turningpoint"] = ""
+    end
     factors = Dict(Symbol(k) => v for (k, v) in d)
     factors[:person] = "unknown"
     x = (; Dict(k => String[] for k in keys(factors))...)
     run = StructArray((run = UUID[], experiment = String[], date = Date[], id = String[], comment = String[], x...))
-    azimuths = if isfile(joinpath(path, "azimuths.csv"))
+    azimuths = if isazimuth
         CSV.File(joinpath(path, "azimuths.csv"), ignoreemptylines = true) |> Dict
     else
         Dict()
     end
-    turningpoints = if isfile(joinpath(path, "turningpoints.csv"))
+    turningpoints = if istp
         CSV.File(joinpath(path, "turningpoints.csv"), ignoreemptylines = true) |> Dict
     else
         Dict()
