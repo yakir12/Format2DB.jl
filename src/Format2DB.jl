@@ -30,6 +30,11 @@ function gettables(path, times, pixel)
     else
         Dict()
     end
+    turningpoints = if isfile(joinpath(path, "turningpoints.csv"))
+        CSV.File(joinpath(path, "turningpoints.csv"), ignoreemptylines = true) |> Dict
+    else
+        Dict()
+    end
     video = StructArray((video = UUID[], comment = String[]))
     videofile = StructArray((file_name = String[], video = UUID[], date_time = DateTime[], duration = Nanosecond[], index = Int[]))
     calibration = StructArray((calibration = UUID[], intrinsic = Union{Missing, UUID}[], extrinsic = UUID[], board = Symbol[], comment = String[]))
@@ -40,6 +45,11 @@ function gettables(path, times, pixel)
         runid = uuid1()
         if haskey(azimuths, k)
             factors[:azimuth] = string(azimuths[k], "∘")
+        end
+        if haskey(turningpoints, k)
+            if turningpoints[k] ≠ 1
+                factors[:turningpoint] = string(turningpoints[k])
+            end
         end
         push!(run, (run = runid, experiment = expname, date = Date(now()), id = string("id", hash(string(path, k))), comment = k, factors...))
         videoid = uuid1()
