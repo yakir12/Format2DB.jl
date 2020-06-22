@@ -20,8 +20,8 @@ function gettables(path, times, pixel)
     designation = Symbol(string("a", hash(path)))
     board = StructArray(((designation = designation, checker_width_cm = 4.0, checker_per_width = 2, checker_per_height = 2, board_description = "this is pretty bogus") for _ in 1:1))
     d = CSV.File(joinpath(path, "factors.csv"), ignoreemptylines = true) |> Dict
-    d["azimuth"] = "0°"
-    d["turningpoint"] = "1"
+    d["azimuth"] = ""
+    d["turningpoint"] = ""
     factors = Dict(Symbol(k) => v for (k, v) in d)
     factors[:person] = "unknown"
     x = (; Dict(k => String[] for k in keys(factors))...)
